@@ -11,13 +11,13 @@ Base script by ParrotSec: https://gitlab.com/parrotsec/project/debian-conversion
 
 
 ### **Workflow**
-1. **Deploy the Debian VM**:
-   - Use a cloud-init YAML file to deploy the VM and configure it to connect back to the infrastructure via VPN.
+1. **Deploy the Debian Host**:
+   - Make sure to configure your SSH access accordingly.
 
 2. **Run the Ansible Playbook**:
    - Execute the playbook to convert the VM:
      ```bash
-     ansible-playbook -i inventory.ini debian_to_parrot.yml
+     ansible-playbook -i inventory.ini debian_to_parrotos.yml
      ```
 
 3. **Verify the Conversion**:
@@ -59,13 +59,17 @@ The playbook performs the following tasks:
       src: files/sources.list
       dest: /etc/apt/sources.list
   ```
-- Add the GPG key:
+- Add the GPG key by downloading and installing the official keyring package:
   ```yaml
-  - name: Add Parrot OS GPG Key
-    shell: |
-      wget -qO- https://deb.parrotsec.org/parrot/misc/parrotsec.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
-    args:
-      creates: /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
+  - name: Download Parrot OS Archive Keyring Package
+    get_url:
+      url: "https://deb.parrot.sh/parrot/pool/main/p/parrot-archive-keyring/parrot-archive-keyring_2024.12_all.deb"
+      dest: "/tmp/parrot-archive-keyring_2024.12_all.deb"
+
+  - name: Install Parrot OS Archive Keyring
+    apt:
+      deb: "/tmp/parrot-archive-keyring_2024.12_all.deb"
+      state: present
   ```
 
 #### Conversion to Parrot OS
@@ -80,12 +84,22 @@ The playbook performs the following tasks:
         - parrot-drivers
       state: present
   ```
-- Install penetration testing tools:
+- Install penetration testing tools (optional, disabled by default):
   ```yaml
   - name: Install Parrot Tools Full Suite
     apt:
       name: parrot-tools-full
       state: present
+    when: install_pentesting_tools | bool
+  ```
+  Controlled by the `install_pentesting_tools` variable (default: `false`). Enable at runtime:
+  ```bash
+  ansible-playbook -i inventory.ini debian_to_parrotos.yml -e "install_pentesting_tools=true"
+  ```
+  Or set per-host in your inventory:
+  ```ini
+  [parrot_vms]
+  myhost ansible_host=192.168.1.10 install_pentesting_tools=true
   ```
 
 #### Finalization

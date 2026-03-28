@@ -13,16 +13,17 @@
       - bash
       - wget
       - gnupg
-    # TODO: parrot-core-lite and parrot-apps-basics were part of the headless
-    # edition that was removed from the upstream bash script. Their availability
-    # in the 'echo' repo should be verified before running this playbook.
-    # If they are no longer maintained, replace parrot-core-lite with parrot-core
-    # and remove parrot-apps-basics (or find a suitable replacement).
+    # Headless-specific packages (all confirmed present in 'echo' repo at 7.1.9):
+    #   parrot-core-lite  - low-power/memory-constrained systemd config; depends on parrot-core
+    #   base-files        - base Parrot filesystem and settings
+    #   parrot-apps-basics - CLI tools for headless use (htop, btop, tmux, neovim, net-tools, etc.)
+    #   parrot-drivers    - hardware driver support
     headless_packages:
       - parrot-core-lite
       - base-files
       - parrot-apps-basics
       - parrot-drivers
+    install_pentesting_tools: false
     pentesting_tools: "parrot-tools-full"
 
   tasks:
@@ -101,6 +102,7 @@
       apt:
         name: "{{ pentesting_tools }}"
         state: present
+      when: install_pentesting_tools | bool
 
     - name: Enable SSH Service for Remote Access
       service:
