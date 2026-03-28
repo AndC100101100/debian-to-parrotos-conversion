@@ -1,0 +1,104 @@
+---
+- name: Convert Debian VMs to Parrot OS Headless
+  hosts: parrot_vms
+  become: true
+  vars:
+    parrot_gpg_key: "https://deb.parrotsec.org/parrot/misc/parrotsec.gpg"
+    parrot_repo_file: "/etc/apt/sources.list"
+    parrot_list_file: "/etc/apt/sources.list.d/parrot.list"
+    listchanges_conf_file: "/etc/apt/listchanges.conf"
+    os_release_file: "/etc/os-release"
+    core_packages:
+      - bash
+      - wget
+      - gnupg
+    headless_packages:
+      - parrot-core-lite
+      - base-files
+      - parrot-apps-basics
+      - parrot-drivers
+    pentesting_tools: "parrot-tools-full"
+
+  tasks:
+    - name: Gather System Architecture
+      command: uname -m
+      register: system_arch
+      changed_when: false
+
+    - name: Blacklist broadcom-sta-dkms for ARM64 Architecture
+      command: apt-mark hold broadcom-sta-dkms
+      when: system_arch.stdout == "aarch64"
+
+    - name: Install Core Dependencies
+      apt:
+        name: "{{ core_packages }}"
+        state: present
+
+    - name: Add Parrot OS GPG Key
+      shell: |
+        wget -qO- {{ parrot_gpg_key }} | gpg --dearmor -o /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
+      args:
+        creates: /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
+
+    - name: Copy Parrot OS sources.list
+      copy:
+        src: files/sources.list
+        dest: "{{ parrot_repo_file }}"
+        mode: '0644'
+
+    - name: Copy Parrot OS parrot.list to sources.list.d
+      copy:
+        src: files/parrot.list
+        dest: "{{ parrot_list_file }}"
+        mode: '0644'
+
+    - name: Copy APT listchanges.conf
+      copy:
+        src: files/listchanges.conf
+        dest: "{{ listchanges_conf_file }}"
+        mode: '0644'
+
+    - name: Update APT Cache
+      apt:
+        update_cache: yes
+
+    - name: Copy OS Release Configuration
+      copy:
+        src: files/os-release
+        dest: "{{ os_release_file }}"
+        mode: '0644'
+
+    - name: Update APT Cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade System Packages
+      apt:
+        upgrade: dist
+
+    - name: Install Parrot Core Package
+      apt:
+        name: parrot-core
+        state: present
+
+    - name: Install Headless Edition Packages
+      apt:
+        name: "{{ headless_packages }}"
+        state: present
+
+    - name: Install Parrot Tools Full Suite
+      apt:
+        name: "{{ pentesting_tools }}"
+        state: present
+
+    - name: Enable SSH Service for Remote Access
+      service:
+        name: ssh
+        state: started
+        enabled: true
+
+    - name: Reboot the VM to Finalize Installation
+      reboot:
+        msg: "Rebooting to finalize Parrot OS installation."
+        pre_reboot_delay: 5
+        post_reboot_delay: 10

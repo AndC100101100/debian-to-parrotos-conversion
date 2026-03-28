@@ -1,0 +1,93 @@
+---
+- name: Apply Parrot OS Default Shell Configurations
+  hosts: parrot_vms
+  become: true
+  vars:
+    parrot_bashrc: "/usr/share/base-files/dot.bashrc"
+    parrot_profile: "/usr/share/base-files/dot.profile"
+
+  tasks:
+    # 1. Copy Parrot bashrc globally and to root
+    - name: Copy Parrot bashrc to Global Configuration
+      copy:
+        src: "{{ parrot_bashrc }}"
+        dest: /etc/bash.bashrc
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Parrot bashrc to Default User Skel
+      copy:
+        src: "{{ parrot_bashrc }}"
+        dest: /etc/skel/.bashrc
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Parrot bashrc to Root User
+      copy:
+        src: "{{ parrot_bashrc }}"
+        dest: /root/.bashrc
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 2. Copy Parrot profile globally and to root
+    - name: Copy Parrot profile to Global Configuration
+      copy:
+        src: "{{ parrot_profile }}"
+        dest: /etc/profile
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Parrot profile to Default User Skel
+      copy:
+        src: "{{ parrot_profile }}"
+        dest: /etc/skel/.profile
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Parrot profile to Root User
+      copy:
+        src: "{{ parrot_profile }}"
+        dest: /root/.profile
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    # 3. Apply Parrot bashrc and profile to existing users
+    - name: Find Existing User Home Directories
+      find:
+        paths: /home
+        file_type: directory
+      register: user_homes
+
+    - name: Copy Parrot bashrc to Existing Users
+      copy:
+        src: "{{ parrot_bashrc }}"
+        dest: "{{ item.path }}/.bashrc"
+        remote_src: true
+        owner: "{{ item.path | basename }}"
+        group: "{{ item.path | basename }}"
+        mode: '0644'
+        force: yes
+      with_items: "{{ user_homes.files }}"
+
+    - name: Copy Parrot profile to Existing Users
+      copy:
+        src: "{{ parrot_profile }}"
+        dest: "{{ item.path }}/.profile"
+        remote_src: true
+        owner: "{{ item.path | basename }}"
+        group: "{{ item.path | basename }}"
+        mode: '0644'
+        force: yes
+      with_items: "{{ user_homes.files }}"
