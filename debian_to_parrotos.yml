@@ -3,7 +3,8 @@
   hosts: parrot_vms
   become: true
   vars:
-    parrot_gpg_key: "https://deb.parrotsec.org/parrot/misc/parrotsec.gpg"
+    parrot_keyring_url: "https://deb.parrot.sh/parrot/pool/main/p/parrot-archive-keyring/parrot-archive-keyring_2024.12_all.deb"
+    parrot_keyring_deb: "/tmp/parrot-archive-keyring_2024.12_all.deb"
     parrot_repo_file: "/etc/apt/sources.list"
     parrot_list_file: "/etc/apt/sources.list.d/parrot.list"
     listchanges_conf_file: "/etc/apt/listchanges.conf"
@@ -12,6 +13,11 @@
       - bash
       - wget
       - gnupg
+    # TODO: parrot-core-lite and parrot-apps-basics were part of the headless
+    # edition that was removed from the upstream bash script. Their availability
+    # in the 'echo' repo should be verified before running this playbook.
+    # If they are no longer maintained, replace parrot-core-lite with parrot-core
+    # and remove parrot-apps-basics (or find a suitable replacement).
     headless_packages:
       - parrot-core-lite
       - base-files
@@ -33,12 +39,17 @@
       apt:
         name: "{{ core_packages }}"
         state: present
+        update_cache: yes
 
-    - name: Add Parrot OS GPG Key
-      shell: |
-        wget -qO- {{ parrot_gpg_key }} | gpg --dearmor -o /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
-      args:
-        creates: /etc/apt/trusted.gpg.d/parrot-archive-keyring.gpg
+    - name: Download Parrot OS Archive Keyring Package
+      get_url:
+        url: "{{ parrot_keyring_url }}"
+        dest: "{{ parrot_keyring_deb }}"
+
+    - name: Install Parrot OS Archive Keyring
+      apt:
+        deb: "{{ parrot_keyring_deb }}"
+        state: present
 
     - name: Copy Parrot OS sources.list
       copy:
